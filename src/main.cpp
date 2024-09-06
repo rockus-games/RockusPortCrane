@@ -15,7 +15,7 @@
 #define STEP_CARRIAGE_3 18
 #define STEP_CARRIAGE_4 5
 
-GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
+GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_3, STEP_CARRIAGE_2, STEP_CARRIAGE_4);
 
 // AccelStepper CarriageStepper(8, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
 
@@ -25,7 +25,7 @@ GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_2, 
 #define STEP_TURN_3 4
 #define STEP_TURN_4 2
 
-GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
+GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_3, STEP_TURN_2, STEP_TURN_4);
 // AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
 
 
@@ -34,12 +34,12 @@ GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3,
 #define STEP_CABLE_3 14
 #define STEP_CABLE_4 27
 
-GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
+GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABLE_2, STEP_CABLE_4);
 // AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
 
 
 const int maxSpeed = 1600;
-const int acceleration = 500;
+const int acceleration = 100;
 PicoMQTT::Server mqtt;
 
 const char* ssid     = "Rockus_PortCrane";
@@ -108,13 +108,13 @@ void loop() {
   CarriageStepper.tick();
   CableStepper.tick();
 
-  if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
-    CarriageStepper.setSpeed(0);
-  }
+  // if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
+  //   CarriageStepper.setSpeed(0);
+  // }
 
-  if(analogRead(END_CARRIAGE_HOOK) > 0) {
-    CableStepper.setSpeed(0);
-  }
+  // if(analogRead(END_CARRIAGE_HOOK) > 0) {
+  //   CableStepper.setSpeed(0);
+  // }
 }
 
 void MoveMotor(const char* topic, const char* payload) {
@@ -145,9 +145,9 @@ void MoveCarriage(const char* topic, const char* payload) {
   Serial.println("Moving carriage: " + String(payload));
   double move_speed = String(payload).toDouble();
 
-  if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
-    return;
-  }
+  // if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
+  //   return;
+  // }
 
   CarriageStepper.setTarget(move_speed*10);
   CarriageStepper.setSpeed(move_speed);
@@ -157,9 +157,9 @@ void MoveHook(const char* topic, const char* payload) {
   Serial.println("Moving hook: " + String(payload));
   double move_speed = String(payload).toDouble();
 
-  if(analogRead(END_CARRIAGE_HOOK) > 0) {
-    return;
-  }
+  // if(analogRead(END_CARRIAGE_HOOK) > 0) {
+  //   return;
+  // }
 
   CableStepper.setTarget(move_speed*10);
   CableStepper.setSpeed(move_speed);
