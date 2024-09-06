@@ -68,11 +68,11 @@ void setup() {
   pinMode(END_CARRIAGE_HOOK, INPUT);
 
   CarriageStepper.setMaxSpeed(1000);
-  CarriageStepper.setAcceleration(1000);
+  CarriageStepper.setAcceleration(100);
   TurnStepper.setMaxSpeed(1000);
-  TurnStepper.setAcceleration(1000);
+  TurnStepper.setAcceleration(100);
   CableStepper.setMaxSpeed(1000);
-  CableStepper.setAcceleration(1000);
+  CableStepper.setAcceleration(100);
 
   CarriageStepper.setSpeed(0);
   TurnStepper.setSpeed(0);
@@ -101,6 +101,11 @@ void loop() {
   TurnStepper.runSpeed();
   CarriageStepper.runSpeed();
   CableStepper.runSpeed();
+}
+
+void MoveMotor(const char* topic, const char* payload) {
+  Serial.println("Moving motor: " + String(payload));
+  motor_speed = String(payload).toDouble();
 
   if (motor_speed > 0) {
     analogWrite(MOTOR_F, motor_speed);
@@ -112,11 +117,6 @@ void loop() {
     digitalWrite(MOTOR_F, LOW);
     digitalWrite(MOTOR_B, LOW);
   }
-}
-
-void MoveMotor(const char* topic, const char* payload) {
-  Serial.println("Moving motor: " + String(payload));
-  motor_speed = String(payload).toDouble();
 }
 
 void Turn(const char* topic, const char* payload) {
