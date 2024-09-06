@@ -34,6 +34,8 @@ AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
 AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
 
 
+const int maxSpeed = 1600;
+const int acceleration = 500;
 PicoMQTT::Server mqtt;
 
 const char* ssid     = "Rockus_PortCrane";
@@ -67,12 +69,12 @@ void setup() {
   pinMode(END_CARRIAGE_FAR, INPUT);
   pinMode(END_CARRIAGE_HOOK, INPUT);
 
-  CarriageStepper.setMaxSpeed(1000);
-  CarriageStepper.setAcceleration(100);
-  TurnStepper.setMaxSpeed(1000);
-  TurnStepper.setAcceleration(100);
-  CableStepper.setMaxSpeed(1000);
-  CableStepper.setAcceleration(100);
+  CarriageStepper.setMaxSpeed(maxSpeed);
+  CarriageStepper.setAcceleration(acceleration);
+  TurnStepper.setMaxSpeed(maxSpeed);
+  TurnStepper.setAcceleration(acceleration);
+  CableStepper.setMaxSpeed(maxSpeed);
+  CableStepper.setAcceleration(acceleration);
 
   CarriageStepper.setSpeed(0);
   TurnStepper.setSpeed(0);
@@ -111,10 +113,10 @@ void MoveMotor(const char* topic, const char* payload) {
     analogWrite(MOTOR_F, motor_speed);
     digitalWrite(MOTOR_B, LOW);
   } else if(motor_speed < 0) {
-    digitalWrite(MOTOR_F, 255 - motor_speed);
-    analogWrite(MOTOR_B, HIGH);
+    analogWrite(MOTOR_F, -motor_speed);
+    digitalWrite(MOTOR_B, HIGH);
   } else {
-    digitalWrite(MOTOR_F, LOW);
+    analogWrite(MOTOR_F, LOW);
     digitalWrite(MOTOR_B, LOW);
   }
 }
