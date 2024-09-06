@@ -111,8 +111,8 @@ void MoveMotor(const char* topic, const char* payload) {
     analogWrite(MOTOR_F, motor_speed);
     digitalWrite(MOTOR_B, LOW);
   } else if(motor_speed < 0) {
-    digitalWrite(MOTOR_F, LOW);
-    analogWrite(MOTOR_B, -motor_speed);
+    digitalWrite(MOTOR_F, 255 - motor_speed);
+    analogWrite(MOTOR_B, HIGH);
   } else {
     digitalWrite(MOTOR_F, LOW);
     digitalWrite(MOTOR_B, LOW);
