@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <PicoMQTT.h>
-#include <AccelStepper.h>
+#include <GyverStepper2.h>
 
 #define END_CAPSIZING 34
 #define END_CARRIAGE_CLOSE 35
@@ -15,7 +15,9 @@
 #define STEP_CARRIAGE_3 18
 #define STEP_CARRIAGE_4 5
 
-AccelStepper CarriageStepper(8, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
+GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
+
+// AccelStepper CarriageStepper(8, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
 
 
 #define STEP_TURN_1 17
@@ -23,7 +25,8 @@ AccelStepper CarriageStepper(8, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_
 #define STEP_TURN_3 4
 #define STEP_TURN_4 2
 
-AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
+GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
+// AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
 
 
 #define STEP_CABLE_1 13
@@ -31,7 +34,8 @@ AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
 #define STEP_CABLE_3 14
 #define STEP_CABLE_4 27
 
-AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
+GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
+// AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
 
 
 const int maxSpeed = 1600;
@@ -100,9 +104,17 @@ void setup() {
 void loop() {
   mqtt.loop();
 
-  TurnStepper.runSpeed();
-  CarriageStepper.runSpeed();
-  CableStepper.runSpeed();
+  TurnStepper.tick();
+  CarriageStepper.tick();
+  CableStepper.tick();
+
+  if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
+    CarriageStepper.setSpeed(0);
+  }
+
+  if(analogRead(END_CARRIAGE_HOOK) > 0) {
+    CableStepper.setSpeed(0);
+  }
 }
 
 void MoveMotor(const char* topic, const char* payload) {
@@ -125,6 +137,7 @@ void Turn(const char* topic, const char* payload) {
   Serial.println("Turning: " + String(payload));
   double turn_speed = String(payload).toDouble();
 
+  TurnStepper.setTarget(turn_speed*10);
   TurnStepper.setSpeed(turn_speed);
 }
 
@@ -136,6 +149,7 @@ void MoveCarriage(const char* topic, const char* payload) {
     return;
   }
 
+  CarriageStepper.setTarget(move_speed*10);
   CarriageStepper.setSpeed(move_speed);
 }
 
@@ -147,5 +161,6 @@ void MoveHook(const char* topic, const char* payload) {
     return;
   }
 
+  CableStepper.setTarget(move_speed*10);
   CableStepper.setSpeed(move_speed);
 }
