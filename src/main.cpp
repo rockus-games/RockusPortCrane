@@ -2,8 +2,8 @@
 #include <PicoMQTT.h>
 #include <GyverStepper2.h>
 
-#define END_CAPSIZING 34
-#define END_CARRIAGE_CLOSE 35
+#define END_CAPSIZING 14
+#define END_CARRIAGE_CLOSE 27
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
@@ -31,8 +31,8 @@ GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_3, STEP_TURN_2,
 
 #define STEP_CABLE_1 13
 #define STEP_CABLE_2 12
-#define STEP_CABLE_3 14
-#define STEP_CABLE_4 27
+#define STEP_CABLE_3 25
+#define STEP_CABLE_4 26
 
 GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABLE_2, STEP_CABLE_4);
 // AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
@@ -52,6 +52,13 @@ void MoveHook(const char* topic, const char* payload);
 
 double motor_speed = 0;
 
+bool far_end = false;
+bool close_end = false;
+
+bool hook_end = false;
+
+bool cap_end = false;
+
 void setup() {
   pinMode(MOTOR_F, OUTPUT);
   pinMode(MOTOR_B, OUTPUT);
@@ -68,10 +75,10 @@ void setup() {
   pinMode(STEP_CABLE_3, OUTPUT);
   pinMode(STEP_CABLE_4, OUTPUT);
 
-  pinMode(END_CAPSIZING, INPUT);
-  pinMode(END_CARRIAGE_CLOSE, INPUT);
-  pinMode(END_CARRIAGE_FAR, INPUT);
-  pinMode(END_CARRIAGE_HOOK, INPUT);
+  pinMode(END_CAPSIZING, INPUT_PULLUP);
+  pinMode(END_CARRIAGE_CLOSE, INPUT_PULLUP);
+  pinMode(END_CARRIAGE_FAR, INPUT_PULLUP);
+  pinMode(END_CARRIAGE_HOOK, INPUT_PULLUP);
 
   CarriageStepper.setMaxSpeed(maxSpeed);
   CarriageStepper.setAcceleration(acceleration);
@@ -104,17 +111,51 @@ void setup() {
 void loop() {
   mqtt.loop();
 
+
+
+  // Serial.printf("%d %d %d %d\n", digitalRead(END_CAPSIZING), digitalRead(END_CARRIAGE_CLOSE), digitalRead(END_CARRIAGE_FAR), digitalRead(END_CARRIAGE_HOOK));
+
+  if(digitalRead(END_CAPSIZING) == 0) {
+    if(!cap_end) {
+      CarriageStepper.setSpeed(0);
+      CableStepper.setSpeed(0);
+    }
+    cap_end = true;
+  } else {
+    cap_end = false;
+  }
+
+  if(digitalRead(END_CARRIAGE_CLOSE) == 0) {
+    if(!close_end) {
+      CarriageStepper.setSpeed(0);
+    }
+    close_end = true;
+  } else {
+    close_end = false;
+  }
+
+  if(digitalRead(END_CARRIAGE_FAR) == 0) {
+    if(!far_end) {
+      CarriageStepper.setSpeed(0);
+    }
+    far_end = true;
+  } else {
+    far_end = false;
+  }
+
+  if(digitalRead(END_CARRIAGE_HOOK) == 0) {
+    if(!hook_end) {
+      CableStepper.setSpeed(0);
+      CarriageStepper.setSpeed(0);
+    }
+    hook_end = true;
+  } else {
+    hook_end = false;
+  }
+
   TurnStepper.tick();
   CarriageStepper.tick();
   CableStepper.tick();
-
-  // if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
-  //   CarriageStepper.setSpeed(0);
-  // }
-
-  // if(analogRead(END_CARRIAGE_HOOK) > 0) {
-  //   CableStepper.setSpeed(0);
-  // }
 }
 
 void MoveMotor(const char* topic, const char* payload) {
@@ -133,9 +174,13 @@ void MoveMotor(const char* topic, const char* payload) {
   }
 }
 
+double carriage_speed = 0;
+double hook_speed = 0;
+double turn_speed = 0;
+
 void Turn(const char* topic, const char* payload) {
   Serial.println("Turning: " + String(payload));
-  double turn_speed = String(payload).toDouble();
+  turn_speed = String(payload).toDouble();
 
   TurnStepper.setTarget(turn_speed*10);
   TurnStepper.setSpeed(turn_speed);
@@ -143,24 +188,35 @@ void Turn(const char* topic, const char* payload) {
 
 void MoveCarriage(const char* topic, const char* payload) {
   Serial.println("Moving carriage: " + String(payload));
-  double move_speed = String(payload).toDouble();
+  carriage_speed = String(payload).toDouble();
 
-  // if(analogRead(END_CARRIAGE_CLOSE) > 0 || analogRead(END_CARRIAGE_FAR) > 0) {
-  //   return;
-  // }
+  if(close_end) {
+    carriage_speed = carriage_speed < 0 ? 0 : carriage_speed;
+  }
 
-  CarriageStepper.setTarget(move_speed*10);
-  CarriageStepper.setSpeed(move_speed);
+  if(hook_end) {
+    carriage_speed = carriage_speed > 0 ? 0 : carriage_speed;
+    hook_speed = hook_speed > 0 ? 0 : hook_speed;
+  }
+
+  if(far_end || cap_end) {
+    carriage_speed = carriage_speed > 0 ? 0 : carriage_speed;
+  }
+
+  CarriageStepper.setTarget(carriage_speed*10);
+  CarriageStepper.setSpeed(carriage_speed);
 }
 
 void MoveHook(const char* topic, const char* payload) {
   Serial.println("Moving hook: " + String(payload));
-  double move_speed = String(payload).toDouble();
+  hook_speed = String(payload).toDouble();
 
-  // if(analogRead(END_CARRIAGE_HOOK) > 0) {
-  //   return;
-  // }
 
-  CableStepper.setTarget(move_speed*10);
-  CableStepper.setSpeed(move_speed);
+  if(hook_end || cap_end) {
+    hook_speed = hook_speed > 0 ? 0 : hook_speed;
+    carriage_speed = carriage_speed > 0 ? 0 : carriage_speed;
+  }
+
+  CableStepper.setTarget(hook_speed*10);
+  CableStepper.setSpeed(hook_speed);
 }
