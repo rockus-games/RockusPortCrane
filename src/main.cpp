@@ -119,6 +119,8 @@ void loop() {
     if(!cap_end) {
       CarriageStepper.setSpeed(0);
       CableStepper.setSpeed(0);
+      CarriageStepper.disable();
+      CableStepper.disable();
     }
     cap_end = true;
   } else {
@@ -128,6 +130,7 @@ void loop() {
   if(digitalRead(END_CARRIAGE_CLOSE) == 0) {
     if(!close_end) {
       CarriageStepper.setSpeed(0);
+      CarriageStepper.disable();
     }
     close_end = true;
   } else {
@@ -137,6 +140,7 @@ void loop() {
   if(digitalRead(END_CARRIAGE_FAR) == 0) {
     if(!far_end) {
       CarriageStepper.setSpeed(0);
+      CarriageStepper.disable();
     }
     far_end = true;
   } else {
@@ -147,6 +151,8 @@ void loop() {
     if(!hook_end) {
       CableStepper.setSpeed(0);
       CarriageStepper.setSpeed(0);
+      CableStepper.disable();
+      CarriageStepper.disable();
     }
     hook_end = true;
   } else {
@@ -184,6 +190,11 @@ void Turn(const char* topic, const char* payload) {
 
   TurnStepper.setTarget(turn_speed*10);
   TurnStepper.setSpeed(turn_speed);
+  if(turn_speed != 0) {
+    TurnStepper.enable();
+  } else {
+    TurnStepper.disable();
+  }
 }
 
 void MoveCarriage(const char* topic, const char* payload) {
@@ -205,6 +216,11 @@ void MoveCarriage(const char* topic, const char* payload) {
 
   CarriageStepper.setTarget(carriage_speed*10);
   CarriageStepper.setSpeed(carriage_speed);
+  if(carriage_speed != 0) {
+    CarriageStepper.enable();
+  } else {
+    CarriageStepper.disable();
+  }
 }
 
 void MoveHook(const char* topic, const char* payload) {
@@ -219,4 +235,9 @@ void MoveHook(const char* topic, const char* payload) {
 
   CableStepper.setTarget(hook_speed*10);
   CableStepper.setSpeed(hook_speed);
+  if(hook_speed != 0) {
+    CableStepper.enable();
+  } else {
+    CableStepper.disable();
+  }
 }
