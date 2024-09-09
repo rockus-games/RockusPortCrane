@@ -39,7 +39,7 @@ GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABL
 
 
 const int maxSpeed = 1600;
-const int acceleration = 100;
+const int acceleration = 50;
 PicoMQTT::Server mqtt;
 
 const char* ssid     = "Rockus_PortCrane";
