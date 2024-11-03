@@ -1,29 +1,31 @@
 #include <Arduino.h>
 #include <PicoMQTT.h>
 #include <GyverStepper2.h>
+#include "I2Cdev.h"
+#include "MPU6050_6Axis_MotionApps20.h"
 
 #define END_CAPSIZING 14
 #define END_CARRIAGE_CLOSE 27
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
-#define MOTOR_F 23
-#define MOTOR_B 22
+#define MOTOR_F 26
+#define MOTOR_B 25
 
-#define STEP_CARRIAGE_1 21
-#define STEP_CARRIAGE_2 19
-#define STEP_CARRIAGE_3 18
-#define STEP_CARRIAGE_4 5
+#define STEP_CARRIAGE_1 19
+#define STEP_CARRIAGE_2 18
+#define STEP_CARRIAGE_3 5
+#define STEP_CARRIAGE_4 17
 
 GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_3, STEP_CARRIAGE_2, STEP_CARRIAGE_4);
 
 // AccelStepper CarriageStepper(8, STEP_CARRIAGE_1, STEP_CARRIAGE_2, STEP_CARRIAGE_3, STEP_CARRIAGE_4);
 
 
-#define STEP_TURN_1 17
-#define STEP_TURN_2 16
-#define STEP_TURN_3 4
-#define STEP_TURN_4 2
+#define STEP_TURN_1 16
+#define STEP_TURN_2 4
+#define STEP_TURN_3 2
+#define STEP_TURN_4 15
 
 GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_3, STEP_TURN_2, STEP_TURN_4);
 // AccelStepper TurnStepper(8, STEP_TURN_1, STEP_TURN_2, STEP_TURN_3, STEP_TURN_4);
@@ -36,6 +38,10 @@ GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_3, STEP_TURN_2,
 
 GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABLE_2, STEP_CABLE_4);
 // AccelStepper CableStepper(8, STEP_CABLE_1, STEP_CABLE_2, STEP_CABLE_3, STEP_CABLE_4);
+
+#define GYRO_SDA 21
+#define GYRO_SCL 22
+#define GYRO_ZERO -95
 
 
 const int maxSpeed = 1600;
@@ -58,6 +64,10 @@ bool close_end = false;
 bool hook_end = false;
 
 bool cap_end = false;
+
+MPU6050 mpu;
+
+uint8_t fifoBuffer[45]; 
 
 void setup() {
   pinMode(MOTOR_F, OUTPUT);
@@ -91,6 +101,11 @@ void setup() {
   TurnStepper.setSpeed(0);
   CableStepper.setSpeed(0);
 
+  Wire.begin(GYRO_SDA, GYRO_SCL);
+  mpu.initialize();
+  mpu.dmpInitialize();
+  mpu.setDMPEnabled(true);
+
   Serial.begin(115200);
 
   Serial.print("Запуск точки доступа");
@@ -108,10 +123,48 @@ void setup() {
   mqtt.begin();
 }
 
+float ypr[3];
+
+double getAngle() {
+  static uint32_t tmr;
+  if (millis() - tmr >= 11) { 
+    if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+      Quaternion q;
+      VectorFloat gravity;
+      
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+
+      tmr = millis();
+    }
+  }
+
+  return ypr[1] * 57.3;
+}
+
 void loop() {
   mqtt.loop();
 
+  if(abs(abs(getAngle()) - abs(GYRO_ZERO)) > 15) {
+    TurnStepper.setSpeed(0);
+    TurnStepper.disable();
 
+    CarriageStepper.setSpeed(0);
+    CarriageStepper.disable();
+
+    CableStepper.setSpeed(0);
+    CableStepper.disable();
+
+    Serial.println("Gyro angle error!");
+  }
+  else {
+    TurnStepper.enable();
+    CarriageStepper.enable();
+    CableStepper.enable();
+
+    Serial.println("Gyro angle ok!");
+  }
 
   // Serial.printf("%d %d %d %d\n", digitalRead(END_CAPSIZING), digitalRead(END_CARRIAGE_CLOSE), digitalRead(END_CARRIAGE_FAR), digitalRead(END_CARRIAGE_HOOK));
 
