@@ -4,13 +4,13 @@
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 
-#define END_CAPSIZING 14
+// #define END_CAPSIZING 14
 #define END_CARRIAGE_CLOSE 27
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
-#define MOTOR_F 35
-#define MOTOR_B 34
+#define MOTOR_F 23
+#define MOTOR_B 14
 
 #define STEP_CARRIAGE_1 19
 #define STEP_CARRIAGE_2 18
@@ -63,7 +63,7 @@ bool close_end = false;
 
 bool hook_end = false;
 
-bool cap_end = false;
+bool gyro_end = false;
 
 MPU6050 mpu;
 
@@ -85,7 +85,6 @@ void setup() {
   pinMode(STEP_CABLE_3, OUTPUT);
   pinMode(STEP_CABLE_4, OUTPUT);
 
-  pinMode(END_CAPSIZING, INPUT_PULLUP);
   pinMode(END_CARRIAGE_CLOSE, INPUT_PULLUP);
   pinMode(END_CARRIAGE_FAR, INPUT_PULLUP);
   pinMode(END_CARRIAGE_HOOK, INPUT_PULLUP);
@@ -127,7 +126,7 @@ float ypr[3];
 
 double getAngle() {
   static uint32_t tmr;
-  if (millis() - tmr >= 11) { 
+  if (millis() - tmr >= 100) { 
     if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
       Quaternion q;
       VectorFloat gravity;
@@ -146,39 +145,27 @@ double getAngle() {
 void loop() {
   mqtt.loop();
 
-  if(abs(abs(getAngle()) - abs(GYRO_ZERO)) > 15) {
-    TurnStepper.setSpeed(0);
-    TurnStepper.disable();
+  if(abs(abs(getAngle()) - abs(GYRO_ZERO)) > 9) {
+    if(!gyro_end) {
+      TurnStepper.setSpeed(0);
+      TurnStepper.disable();
 
-    CarriageStepper.setSpeed(0);
-    CarriageStepper.disable();
+      CarriageStepper.setSpeed(0);
+      CarriageStepper.disable();
 
-    CableStepper.setSpeed(0);
-    CableStepper.disable();
+      CableStepper.setSpeed(0);
+      CableStepper.disable();
 
-    Serial.println("Gyro angle error!");
+      Serial.println("Gyro angle error!");
+    }
+    gyro_end = true;
   }
   else {
-    TurnStepper.enable();
-    CarriageStepper.enable();
-    CableStepper.enable();
-
-    Serial.println("Gyro angle ok!");
+    gyro_end = false;
   }
 
-  // Serial.printf("%d %d %d %d\n", digitalRead(END_CAPSIZING), digitalRead(END_CARRIAGE_CLOSE), digitalRead(END_CARRIAGE_FAR), digitalRead(END_CARRIAGE_HOOK));
 
-  if(digitalRead(END_CAPSIZING) == 0) {
-    if(!cap_end) {
-      CarriageStepper.setSpeed(0);
-      CableStepper.setSpeed(0);
-      CarriageStepper.disable();
-      CableStepper.disable();
-    }
-    cap_end = true;
-  } else {
-    cap_end = false;
-  }
+  // Serial.printf("%d %d %d\n", digitalRead(END_CARRIAGE_CLOSE), digitalRead(END_CARRIAGE_FAR), digitalRead(END_CARRIAGE_HOOK));
 
   if(digitalRead(END_CARRIAGE_CLOSE) == 0) {
     if(!close_end) {
@@ -263,7 +250,7 @@ void MoveCarriage(const char* topic, const char* payload) {
     hook_speed = hook_speed > 0 ? 0 : hook_speed;
   }
 
-  if(far_end || cap_end) {
+  if(far_end || gyro_end) {
     carriage_speed = carriage_speed > 0 ? 0 : carriage_speed;
   }
 
@@ -281,7 +268,7 @@ void MoveHook(const char* topic, const char* payload) {
   hook_speed = String(payload).toDouble();
 
 
-  if(hook_end || cap_end) {
+  if(hook_end || gyro_end) {
     hook_speed = hook_speed > 0 ? 0 : hook_speed;
     carriage_speed = carriage_speed > 0 ? 0 : carriage_speed;
   }
