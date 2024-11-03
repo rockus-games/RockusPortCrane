@@ -9,8 +9,8 @@
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
-#define MOTOR_F 26
-#define MOTOR_B 25
+#define MOTOR_F 35
+#define MOTOR_B 34
 
 #define STEP_CARRIAGE_1 19
 #define STEP_CARRIAGE_2 18
