@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <PicoMQTT.h>
 #include <GyverStepper2.h>
+#include <Wire.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 
@@ -41,7 +42,10 @@ GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABL
 
 #define GYRO_SDA 21
 #define GYRO_SCL 22
-#define GYRO_ZERO -95
+#define GYRO_ZERO_VAL -92.5
+
+#define GYRO_MIN_VAL 3
+#define GYRO_MAX_VAL 4
 
 
 const int maxSpeed = 1600;
@@ -70,6 +74,8 @@ MPU6050 mpu;
 uint8_t fifoBuffer[45]; 
 
 void setup() {
+  Serial.begin(115200);
+
   pinMode(MOTOR_F, OUTPUT);
   pinMode(MOTOR_B, OUTPUT);
   pinMode(STEP_CARRIAGE_1, OUTPUT);
@@ -100,12 +106,32 @@ void setup() {
   TurnStepper.setSpeed(0);
   CableStepper.setSpeed(0);
 
-  Wire.begin(GYRO_SDA, GYRO_SCL);
+  byte error, address;
+  Wire.begin();
+
+  delay(1000);
+
+  Serial.println("Scanning...");
+  for(address = 1; address < 127; address++ )
+  {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+ 
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+      mpu = MPU6050(address);
+    }
+  }
+
   mpu.initialize();
   mpu.dmpInitialize();
   mpu.setDMPEnabled(true);
 
-  Serial.begin(115200);
 
   Serial.print("Запуск точки доступа");
   WiFi.softAP(ssid, password);
@@ -121,12 +147,11 @@ void setup() {
 
   mqtt.begin();
 }
-
 float ypr[3];
-
-double getAngle() {
-  static uint32_t tmr;
-  if (millis() - tmr >= 100) { 
+uint32_t tmr;
+void getAngle() {
+  
+  if (millis() - tmr >= 500) { 
     if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
       Quaternion q;
       VectorFloat gravity;
@@ -136,16 +161,18 @@ double getAngle() {
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
       tmr = millis();
+      // Serial.println(ypr[1] * 57.3);
     }
   }
-
-  return ypr[1] * 57.3;
 }
+
 
 void loop() {
   mqtt.loop();
 
-  if(abs(abs(getAngle()) - abs(GYRO_ZERO)) > 9) {
+  getAngle();
+
+  if(abs(abs(ypr[1] * 57.3) - abs(GYRO_ZERO_VAL)) > GYRO_MAX_VAL) {
     if(!gyro_end) {
       TurnStepper.setSpeed(0);
       TurnStepper.disable();
@@ -160,7 +187,7 @@ void loop() {
     }
     gyro_end = true;
   }
-  else {
+  else if(abs(abs(ypr[1] * 57.3) - abs(GYRO_ZERO_VAL)) < GYRO_MIN_VAL) {
     gyro_end = false;
   }
 
@@ -208,6 +235,10 @@ void MoveMotor(const char* topic, const char* payload) {
   Serial.println("Moving motor: " + String(payload));
   motor_speed = String(payload).toDouble();
 
+  if(gyro_end) {
+    motor_speed = 0;
+  }
+
   if (motor_speed > 0) {
     analogWrite(MOTOR_F, motor_speed);
     digitalWrite(MOTOR_B, LOW);
@@ -227,6 +258,10 @@ double turn_speed = 0;
 void Turn(const char* topic, const char* payload) {
   Serial.println("Turning: " + String(payload));
   turn_speed = String(payload).toDouble();
+
+  if(gyro_end) {
+    turn_speed = 0;
+  }
 
   TurnStepper.setTarget(turn_speed*10);
   TurnStepper.setSpeed(turn_speed);
