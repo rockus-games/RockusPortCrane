@@ -10,9 +10,12 @@
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
-// Пины, к которым подключены двигатели колёс
-#define MOTOR_F 23
-#define MOTOR_B 14
+#define MOTOR_STEP 23
+#define MOTOR_DIR 14
+#define MOTOR_EN 15
+
+// Шаговый двигатель движения
+GStepper2<STEPPER2WIRE> MotorStepper(2038, MOTOR_STEP, MOTOR_DIR, MOTOR_EN);
 
 // Пины, к которым подключены шаговые двигатели
 #define STEP_CARRIAGE_1 19
@@ -23,13 +26,12 @@
 // Шаговый двигатель каретки
 GStepper2<STEPPER4WIRE> CarriageStepper(2038, STEP_CARRIAGE_1, STEP_CARRIAGE_3, STEP_CARRIAGE_2, STEP_CARRIAGE_4);
 
-#define STEP_TURN_1 16
-#define STEP_TURN_2 4
-#define STEP_TURN_3 2
-#define STEP_TURN_4 15
+#define TURN_STEP 16
+#define TURN_DIR 4
+#define TURN_EN 2
 
 // Шаговый двигатель поворота
-GStepper2<STEPPER4WIRE> TurnStepper(2038, STEP_TURN_1, STEP_TURN_3, STEP_TURN_2, STEP_TURN_4);
+GStepper2<STEPPER2WIRE> TurnStepper(2038, TURN_STEP, TURN_DIR, TURN_EN);
 
 #define STEP_CABLE_1 13
 #define STEP_CABLE_2 12
@@ -87,16 +89,16 @@ void setup() {
   Serial.begin(115200);
 
   // Настройка пинов на вывод сигнала
-  pinMode(MOTOR_F, OUTPUT);
-  pinMode(MOTOR_B, OUTPUT);
+  pinMode(MOTOR_STEP, OUTPUT);
+  pinMode(MOTOR_DIR, OUTPUT);
+  pinMode(MOTOR_EN, OUTPUT);
   pinMode(STEP_CARRIAGE_1, OUTPUT);
   pinMode(STEP_CARRIAGE_2, OUTPUT);
   pinMode(STEP_CARRIAGE_3, OUTPUT);
   pinMode(STEP_CARRIAGE_4, OUTPUT);
-  pinMode(STEP_TURN_1, OUTPUT);
-  pinMode(STEP_TURN_2, OUTPUT);
-  pinMode(STEP_TURN_3, OUTPUT);
-  pinMode(STEP_TURN_4, OUTPUT);
+  pinMode(TURN_STEP, OUTPUT);
+  pinMode(TURN_DIR, OUTPUT);
+  pinMode(TURN_EN, OUTPUT);
   pinMode(STEP_CABLE_1, OUTPUT);
   pinMode(STEP_CABLE_2, OUTPUT);
   pinMode(STEP_CABLE_3, OUTPUT);
@@ -114,11 +116,15 @@ void setup() {
   TurnStepper.setAcceleration(acceleration);
   CableStepper.setMaxSpeed(maxSpeed);
   CableStepper.setAcceleration(acceleration);
+  MotorStepper.setMaxSpeed(maxSpeed);
+  MotorStepper.setAcceleration(acceleration);
 
-  // Задаём начальную скорость двигателям
+  // Задаём начальную скорость двигателям  pinMode(MOTOR_DIR, OUTPUT);
+
   CarriageStepper.setSpeed(0);
   TurnStepper.setSpeed(0);
   CableStepper.setSpeed(0);
+  MotorStepper.setSpeed(0);
 
   // Настройка гироскопа
   byte error, address;
@@ -211,6 +217,9 @@ void loop() {
       CableStepper.setSpeed(0);
       CableStepper.disable();
 
+      MotorStepper.setSpeed(0);
+      MotorStepper.disable();
+
       Serial.println("Gyro angle error!");
     }
     gyro_end = true;
@@ -272,18 +281,12 @@ void MoveMotor(const char* topic, const char* payload) {
   }
 
   // Двигаем двигатели
-  if (motor_speed > 0) {
-    // Если скорость больше нуля, то двигаем вперед
-    analogWrite(MOTOR_F, motor_speed);
-    digitalWrite(MOTOR_B, LOW);
-  } else if(motor_speed < 0) {
-    // Если скорость меньше нуля, то двигаем назад
-    analogWrite(MOTOR_F, -motor_speed);
-    digitalWrite(MOTOR_B, HIGH);
+  MotorStepper.setTarget(motor_speed*10);
+  MotorStepper.setSpeed(motor_speed);
+  if(motor_speed != 0) {
+    MotorStepper.enable();
   } else {
-    // Если скорость равна нулю, то остановим двигатели
-    analogWrite(MOTOR_F, LOW);
-    digitalWrite(MOTOR_B, LOW);
+    MotorStepper.disable();
   }
 }
 
