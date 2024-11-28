@@ -11,8 +11,8 @@
 #define END_CARRIAGE_HOOK 33
 
 // Пины, к которым подключены двигатели колёс
-#define MOTOR_F 23
-#define MOTOR_B 14
+#define MOTOR_GO 23
+// #define MOTOR_B 14
 
 // Пины, к которым подключены шаговые двигатели
 #define STEP_CARRIAGE_1 19
@@ -87,8 +87,7 @@ void setup() {
   Serial.begin(115200);
 
   // Настройка пинов на вывод сигнала
-  pinMode(MOTOR_F, OUTPUT);
-  pinMode(MOTOR_B, OUTPUT);
+  pinMode(MOTOR_GO, OUTPUT);
   pinMode(STEP_CARRIAGE_1, OUTPUT);
   pinMode(STEP_CARRIAGE_2, OUTPUT);
   pinMode(STEP_CARRIAGE_3, OUTPUT);
@@ -274,16 +273,9 @@ void MoveMotor(const char* topic, const char* payload) {
   // Двигаем двигатели
   if (motor_speed > 0) {
     // Если скорость больше нуля, то двигаем вперед
-    analogWrite(MOTOR_F, motor_speed);
-    digitalWrite(MOTOR_B, LOW);
-  } else if(motor_speed < 0) {
-    // Если скорость меньше нуля, то двигаем назад
-    analogWrite(MOTOR_F, -motor_speed);
-    digitalWrite(MOTOR_B, HIGH);
+    digitalWrite(MOTOR_GO, HIGH);
   } else {
-    // Если скорость равна нулю, то остановим двигатели
-    analogWrite(MOTOR_F, LOW);
-    digitalWrite(MOTOR_B, LOW);
+    digitalWrite(MOTOR_GO, LOW);
   }
 }
 
