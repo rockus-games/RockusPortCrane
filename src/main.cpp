@@ -10,12 +10,12 @@
 #define END_CARRIAGE_FAR 32
 #define END_CARRIAGE_HOOK 33
 
-#define MOTOR_STEP 23
-#define MOTOR_DIR 14
-#define MOTOR_EN 15
+#define MOVE_STEP 23
+#define MOVE_DIR 14
+#define MOVE_EN 15
 
 // Шаговый двигатель движения
-GStepper2<STEPPER2WIRE> MotorStepper(2038, MOTOR_STEP, MOTOR_DIR, MOTOR_EN);
+GStepper2<STEPPER2WIRE> MoveStepper(2038, MOVE_STEP, MOVE_DIR, MOVE_EN);
 
 // Пины, к которым подключены шаговые двигатели
 #define STEP_CARRIAGE_1 19
@@ -46,7 +46,7 @@ GStepper2<STEPPER4WIRE> CableStepper(2038, STEP_CABLE_1, STEP_CABLE_3, STEP_CABL
 #define GYRO_SCL 22
 
 // Стандартное положение гироскопа
-#define GYRO_ZERO_VAL -92.5
+#define GYRO_ZERO_VAL 99.4
 
 // Минимальное и максимальное отклонение гироскопа
 #define GYRO_MIN_VAL 3
@@ -70,7 +70,7 @@ void MoveCarriage(const char* topic, const char* payload);
 void MoveHook(const char* topic, const char* payload);
 
 // Скорости двигателей
-double motor_speed = 0;
+double move_speed = 0;
 
 // Состояние нажатия концевиков
 bool far_end = false;
@@ -89,9 +89,9 @@ void setup() {
   Serial.begin(115200);
 
   // Настройка пинов на вывод сигнала
-  pinMode(MOTOR_STEP, OUTPUT);
-  pinMode(MOTOR_DIR, OUTPUT);
-  pinMode(MOTOR_EN, OUTPUT);
+  pinMode(MOVE_STEP, OUTPUT);
+  pinMode(MOVE_DIR, OUTPUT);
+  pinMode(MOVE_EN, OUTPUT);
   pinMode(STEP_CARRIAGE_1, OUTPUT);
   pinMode(STEP_CARRIAGE_2, OUTPUT);
   pinMode(STEP_CARRIAGE_3, OUTPUT);
@@ -116,15 +116,15 @@ void setup() {
   TurnStepper.setAcceleration(acceleration);
   CableStepper.setMaxSpeed(maxSpeed);
   CableStepper.setAcceleration(acceleration);
-  MotorStepper.setMaxSpeed(maxSpeed);
-  MotorStepper.setAcceleration(acceleration);
+  MoveStepper.setMaxSpeed(maxSpeed);
+  MoveStepper.setAcceleration(acceleration);
 
-  // Задаём начальную скорость двигателям  pinMode(MOTOR_DIR, OUTPUT);
+  // Задаём начальную скорость двигателям  pinMode(MOVE_DIR, OUTPUT);
 
   CarriageStepper.setSpeed(0);
   TurnStepper.setSpeed(0);
   CableStepper.setSpeed(0);
-  MotorStepper.setSpeed(0);
+  MoveStepper.setSpeed(0);
 
   // Настройка гироскопа
   byte error, address;
@@ -194,6 +194,8 @@ void getAngle() {
       tmr = millis();
       // Serial.println(ypr[1] * 57.3);
     }
+
+    // Serial.println("GYRO: " + String(abs(ypr[1] * 57.3)) + " - " + String(GYRO_ZERO_VAL));
   }
 }
 
@@ -206,7 +208,9 @@ void loop() {
   getAngle();
 
   // Если угол наклона крана больше 4 градусов, то выключаем двигатели
-  if(abs(abs(ypr[1] * 57.3) - abs(GYRO_ZERO_VAL)) > GYRO_MAX_VAL) {
+  double gyro_angle = abs(abs(ypr[1] * 57.3) - abs(GYRO_ZERO_VAL));
+
+  if(gyro_angle > GYRO_MAX_VAL) {
     if(!gyro_end) {
       TurnStepper.setSpeed(0);
       TurnStepper.disable();
@@ -217,16 +221,20 @@ void loop() {
       CableStepper.setSpeed(0);
       CableStepper.disable();
 
-      MotorStepper.setSpeed(0);
-      MotorStepper.disable();
+      MoveStepper.setSpeed(0);
+      MoveStepper.disable();
 
       Serial.println("Gyro angle error!");
     }
     gyro_end = true;
   }
   // Если угол наклона крана меньше 3 градусов, то выключаем двигатели
-  else if(abs(abs(ypr[1] * 57.3) - abs(GYRO_ZERO_VAL)) < GYRO_MIN_VAL) {
+  else if(gyro_angle < GYRO_MIN_VAL) {
+    if(gyro_end) {
+      Serial.println("Gyro angle OK!");
+    }
     gyro_end = false;
+    
   }
 
   // Проверка концевика на основании крана
@@ -267,27 +275,29 @@ void loop() {
   TurnStepper.tick();
   CarriageStepper.tick();
   CableStepper.tick();
+  MoveStepper.tick();
 }
 
 // Функция движения двигателей
 void MoveMotor(const char* topic, const char* payload) {
-  Serial.println("Moving motor: " + String(payload));
   // Сохраняем скорость двигателя
-  motor_speed = String(payload).toDouble();
+  move_speed = String(payload).toDouble();
 
   // Если угол наклона крана больше 4 градусов, то выключаем двигатели
   if(gyro_end) {
-    motor_speed = 0;
+    move_speed = 0;
   }
 
   // Двигаем двигатели
-  MotorStepper.setTarget(motor_speed*10);
-  MotorStepper.setSpeed(motor_speed);
-  if(motor_speed != 0) {
-    MotorStepper.enable();
+  MoveStepper.setTarget(move_speed*10);
+  MoveStepper.setSpeed(move_speed);
+  if(move_speed != 0) {
+    MoveStepper.enable();
   } else {
-    MotorStepper.disable();
+    MoveStepper.disable();
   }
+  Serial.println("Moving motor: " + String(move_speed));
+
 }
 
 // Скорости шаговых двигателей
